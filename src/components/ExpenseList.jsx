@@ -18,7 +18,7 @@ const categoryColors = {
 
 const ExpenseList = ({ formRef }) => {
   const { expenses, loading, filter, setFilter, deleteExpense, importExpensesToState } = useExpenses();
-  const [searchTerm, setSearchTerm] = useState(""); // 🔍 New state
+  const [searchTerm, setSearchTerm] = useState("");
   const deletingId = useRef(null);
 
   // Filter by category first
@@ -26,7 +26,6 @@ const ExpenseList = ({ formRef }) => {
     ? expenses
     : expenses.filter(expense => expense.category === filter);
 
-  // Apply search filter (case-insensitive)
   if (searchTerm.trim() !== "") {
     filteredExpenses = filteredExpenses.filter(expense =>
       expense.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -91,7 +90,7 @@ const ExpenseList = ({ formRef }) => {
       <div className="p-6 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-lg font-semibold text-gray-900">Recent Expenses</h2>
         
-        {/* 🔍 Search Input */}
+        {/* Search Input */}
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           <input
