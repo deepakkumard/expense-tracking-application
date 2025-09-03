@@ -9,10 +9,18 @@ const HARDCODED_USER_ID = 'user-123';
 // GET /api/expenses
 export const getAllExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find({ userId: HARDCODED_USER_ID })
-      .sort({ date: -1 });
-
-    res.json(expenses);
+    const expenses = await Expense.find({ userId: req.user.id })
+      .sort({ date: -1 }) // Sort by most recent first
+      .lean();
+    
+    // Convert _id to id for frontend compatibility
+    const formattedExpenses = expenses.map(expense => ({
+      ...expense,
+      id: expense._id.toString(),
+      _id: undefined
+    }));
+    
+    res.json(formattedExpenses);
   } catch (error) {
     console.error('Error fetching expenses:', error);
     res.status(500).json({ error: 'Failed to fetch expenses' });
@@ -22,20 +30,33 @@ export const getAllExpenses = async (req, res) => {
 // POST /api/expenses
 export const createExpense = async (req, res) => {
   try {
-    const { description, amount, category, userId } = req.body;
-
+    const { description, amount, category } = req.body;
+    
     const newExpense = new Expense({
       description,
-      amount,
+      amount: parseFloat(amount),
       category,
-      userId: userId || HARDCODED_USER_ID,
-      date: new Date(),
+      userId: req.user.id || HARDCODED_USER_ID,
+      date: new Date()
     });
-
-    await newExpense.save();
-    res.status(201).json(newExpense);
+    
+    const savedExpense = await newExpense.save();
+    
+    const formattedExpense = {
+      ...savedExpense.toObject(),
+      id: savedExpense._id.toString(),
+      _id: undefined
+    };
+    
+    res.status(201).json(formattedExpense);
   } catch (error) {
-    console.error('Error creating expense:', error.message);
+    console.error('Error creating expense:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        error: 'Validation error', 
+        details: error.message 
+      });
+    }
     res.status(500).json({ error: 'Failed to create expense' });
   }
 };
@@ -44,21 +65,37 @@ export const createExpense = async (req, res) => {
 export const updateExpense = async (req, res) => {
   try {
     const { id } = req.params;
-    const { description, amount, category, userId } = req.body;
-
+    const { description, amount, category } = req.body;
+    
     const updatedExpense = await Expense.findOneAndUpdate(
-      { _id: id, userId: userId || HARDCODED_USER_ID },
-      { description, amount, category },
+      { _id: id, userId: req.user.id  || HARDCODED_USER_ID},
+      {
+        description,
+        amount: parseFloat(amount),
+        category
+      },
       { new: true, runValidators: true }
     );
-
+    
     if (!updatedExpense) {
       return res.status(404).json({ error: 'Expense not found' });
     }
-
-    res.json(updatedExpense);
+    
+    const formattedExpense = {
+      ...updatedExpense.toObject(),
+      id: updatedExpense._id.toString(),
+      _id: undefined
+    };
+    
+    res.json(formattedExpense);
   } catch (error) {
     console.error('Error updating expense:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        error: 'Validation error', 
+        details: error.message 
+      });
+    }
     res.status(500).json({ error: 'Failed to update expense' });
   }
 };
@@ -67,16 +104,16 @@ export const updateExpense = async (req, res) => {
 export const deleteExpense = async (req, res) => {
   try {
     const { id } = req.params;
-
-    const deleted = await Expense.findOneAndDelete({
-      _id: id,
-      userId: HARDCODED_USER_ID
+    
+    const deletedExpense = await Expense.findOneAndDelete({ 
+      _id: id, 
+      userId: req.user.id || HARDCODED_USER_ID
     });
-
-    if (!deleted) {
+    
+    if (!deletedExpense) {
       return res.status(404).json({ error: 'Expense not found' });
     }
-
+    
     res.json({ message: 'Expense deleted successfully' });
   } catch (error) {
     console.error('Error deleting expense:', error);
@@ -87,15 +124,15 @@ export const deleteExpense = async (req, res) => {
 // GET /api/expenses/summary
 export const getExpenseSummary = async (req, res) => {
   try {
-    const expenses = await Expense.find({ userId: HARDCODED_USER_ID });
-
-    const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-
-    const byCategory = expenses.reduce((acc, e) => {
-      acc[e.category] = (acc[e.category] || 0) + e.amount;
+    const expenses = await Expense.find({ userId: req.user.id }).lean();
+    
+    const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+    
+    const byCategory = expenses.reduce((acc, expense) => {
+      acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
       return acc;
     }, {});
-
+    
     res.json({ total, byCategory });
   } catch (error) {
     console.error('Error fetching summary:', error);
@@ -201,10 +238,10 @@ export const importExpenses = async (req, res) => {
       };
     });
 
-    await Expense.insertMany(expenses);
+   await Expense.insertMany(expenses);
 
     fs.unlinkSync(filePath);
-    res.json({ message: "Expenses imported successfully", count: expenses.length });
+    res.json({ message: "Expenses imported successfully", count: expenses.length, expenses });
   } catch (error) {
     console.error("Import error:", error);
     res.status(500).json({ error: error.message });

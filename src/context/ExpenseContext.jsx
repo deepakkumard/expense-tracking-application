@@ -26,18 +26,27 @@ const expenseReducer = (state, action) => {
       return {
         ...state,
         expenses: state.expenses.map(exp =>
-          exp._id === action.payload._id ? action.payload : exp
-        ),
+          (exp._id || exp.id) === (action.payload._id || action.payload.id)
+            ? action.payload
+            : exp
+        )
       };
     case 'DELETE_EXPENSE':
       return {
         ...state,
-        expenses: state.expenses.filter(expense => expense._id !== action.payload)
+        expenses: state.expenses.filter(
+          exp => (exp._id || exp.id) !== action.payload
+        )
       };
     case 'SET_FILTER':
       return { ...state, filter: action.payload };
     case 'SET_ERROR':
       return { ...state, error: action.payload, loading: false };
+    case 'SET_IMPORTED_EXPENSES':
+      return {
+        ...state,
+        expenses: [...action.payload, ...state.expenses]
+      };
     default:
       return state;
   }
@@ -84,6 +93,11 @@ export const ExpenseProvider = ({ children }) => {
     toast.success('Expense deleted successfully!');
   };
 
+  const importExpensesToState = (expenses) => {
+    dispatch({ type: 'SET_IMPORTED_EXPENSES', payload: expenses });
+    loadSummary();
+  };
+
   const setFilter = (filter) => {
     dispatch({ type: 'SET_FILTER', payload: filter });
   };
@@ -93,18 +107,19 @@ export const ExpenseProvider = ({ children }) => {
     loadSummary();
   }, []);
 
-  const value = {
-    ...state,
-    addExpense,
-    updateExpense,
-    deleteExpense,
-    setFilter,
-    loadExpenses,
-    loadSummary
-  };
-
   return (
-    <ExpenseContext.Provider value={value}>
+    <ExpenseContext.Provider
+      value={{
+        ...state,
+        addExpense,
+        updateExpense,
+        deleteExpense,
+        importExpensesToState,
+        setFilter,
+        loadExpenses,
+        loadSummary
+      }}
+    >
       {children}
     </ExpenseContext.Provider>
   );
@@ -112,8 +127,6 @@ export const ExpenseProvider = ({ children }) => {
 
 export const useExpenses = () => {
   const context = useContext(ExpenseContext);
-  if (!context) {
-    throw new Error('useExpenses must be used within ExpenseProvider');
-  }
+  if (!context) throw new Error('useExpenses must be used within ExpenseProvider');
   return context;
 };

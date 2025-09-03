@@ -15,9 +15,6 @@ const expenseSchema = Joi.object({
     'any.only': 'Category must be one of: Food, Transport, Shopping, Utilities, Healthcare, Entertainment, Other',
     'any.required': 'Category is required'
   }),
-  userId: Joi.string().required().messages({
-    'string.empty': 'User ID is required'
-  })
 });
 
 export const validateExpense = (req, res, next) => {

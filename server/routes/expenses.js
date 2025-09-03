@@ -10,9 +10,13 @@ import {
 } from '../controllers/expenseController.js';
 import { validateExpense } from '../middleware/validation.js';
 import multer from "multer";
+import { authenticateUser } from '../middleware/auth.js';
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
+
+// Apply authentication middleware to all routes
+router.use(authenticateUser);
 
 // GET /api/expenses - Get all expenses
 router.get('/', getAllExpenses);
